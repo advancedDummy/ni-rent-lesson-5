@@ -66,3 +66,27 @@ class Manager:
             total_bills_pln=total_bills,
             total_due_pln=total_transfers - total_bills,
         )
+
+
+    def get_tenant_settlements(self, apartment_key: str, year: int, month: int) -> list[TenantSettlement]:
+        # Rozliczenia najemców, równy podział rachunków mieszkania między jego najemców
+        apartment_settlement = self.get_apartment_settlement(apartment_key, year, month)
+        if apartment_settlement is None:
+            return []
+        tenant_keys = [key for key, tenant in self.tenants.items() if tenant.apartment == apartment_key]
+        if not tenant_keys:
+            return []
+        share = apartment_settlement.total_bills_pln / len(tenant_keys)
+        return [
+            TenantSettlement(
+                tenant=key,
+                apartment_settlement=apartment_key,
+                month=month,
+                year=year,
+                rent_pln=0.0,
+                bills_pln=share,
+                total_due_pln=share,
+                balance_pln=-share,  # przelewy (0) - należność
+            )
+            for key in tenant_keys
+        ]
