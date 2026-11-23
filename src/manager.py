@@ -1,4 +1,5 @@
-from src.models import Apartment, Bill, Parameters, Tenant, Transfer
+from src.models import (Apartment, ApartmentSettlement, Bill, Parameters, Tenant,
+                        TenantSettlement, Transfer)
 
 
 class Manager:
@@ -49,3 +50,19 @@ class Manager:
                 continue
             costs += bill.amount_pln
         return costs
+
+
+    def get_apartment_settlement(self, apartment_key: str, year: int, month: int) -> ApartmentSettlement | None:
+        # Rozliczenie mieszkania za miesiąc: bilans = przelewy - rachunki (przelewy w kolejnym kroku)
+        total_bills = self.get_apartment_costs(apartment_key, year, month)
+        if total_bills is None:
+            return None
+        total_transfers = 0.0  # TODO: uwzględnić przelewy w kolejnym kroku
+        return ApartmentSettlement(
+            apartment=apartment_key,
+            month=month,
+            year=year,
+            total_rent_pln=total_transfers,
+            total_bills_pln=total_bills,
+            total_due_pln=total_transfers - total_bills,
+        )
