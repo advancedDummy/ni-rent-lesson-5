@@ -1,4 +1,5 @@
-from src.models import Apartment, Bill, Parameters, Tenant, Transfer
+from src.models import (Apartment, ApartmentSettlement, Bill, Parameters, Tenant,
+                        TenantSettlement, Transfer)
 
 
 class Manager:
@@ -23,3 +24,69 @@ class Manager:
             if tenant.apartment not in self.apartments:
                 return False
         return True
+
+    def get_apartment_costs(self, apartment_key: str, year: int | None = None, month: int | None = None) -> float | None:
+        """Suma rachunków mieszkania.
+
+        - rok i miesiąc: koszty z danego miesiąca,
+        - tylko rok: koszty z całego roku,
+        - bez roku i miesiąca: cała zapisana historia,
+        - None, gdy mieszkanie nie istnieje.
+        """
+        if month is not None:
+            if year is None:
+                raise ValueError("Podanie miesiąca wymaga podania roku")
+            if not 1 <= month <= 12:
+                raise ValueError(f"Nieprawidłowy miesiąc: {month}")
+        if apartment_key not in self.apartments:
+            return None
+        costs = 0.0
+        for bill in self.bills:
+            if bill.apartment != apartment_key:
+                continue
+            if year is not None and bill.settlement_year != year:
+                continue
+            if month is not None and bill.settlement_month != month:
+                continue
+            costs += bill.amount_pln
+        return costs
+
+
+    def get_apartment_settlement(self, apartment_key: str, year: int, month: int) -> ApartmentSettlement | None:
+        # Rozliczenie mieszkania za miesiąc: bilans = przelewy - rachunki (przelewy w kolejnym kroku)
+        total_bills = self.get_apartment_costs(apartment_key, year, month)
+        if total_bills is None:
+            return None
+        total_transfers = 0.0  # TODO: uwzględnić przelewy w kolejnym kroku
+        return ApartmentSettlement(
+            apartment=apartment_key,
+            month=month,
+            year=year,
+            total_rent_pln=total_transfers,
+            total_bills_pln=total_bills,
+            total_due_pln=total_transfers - total_bills,
+        )
+
+
+    def get_tenant_settlements(self, apartment_key: str, year: int, month: int) -> list[TenantSettlement]:
+        # Rozliczenia najemców, równy podział rachunków mieszkania między jego najemców
+        apartment_settlement = self.get_apartment_settlement(apartment_key, year, month)
+        if apartment_settlement is None:
+            return []
+        tenant_keys = [key for key, tenant in self.tenants.items() if tenant.apartment == apartment_key]
+        if not tenant_keys:
+            return []
+        share = apartment_settlement.total_bills_pln / len(tenant_keys)
+        return [
+            TenantSettlement(
+                tenant=key,
+                apartment_settlement=apartment_key,
+                month=month,
+                year=year,
+                rent_pln=0.0,
+                bills_pln=share,
+                total_due_pln=share,
+                balance_pln=-share,  # przelewy (0) - należność
+            )
+            for key in tenant_keys
+        ]
