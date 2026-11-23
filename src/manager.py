@@ -24,14 +24,28 @@ class Manager:
                 return False
         return True
 
-    def get_apartment_costs(self, apartment_key: str, year: int, month: int) -> float | None:
-        # Suma rachunków mieszkania za dany miesiąc. Zwraca None, gdy mieszkanie nie istnieje
+    def get_apartment_costs(self, apartment_key: str, year: int | None = None, month: int | None = None) -> float | None:
+        """Suma rachunków mieszkania.
+
+        - rok i miesiąc: koszty z danego miesiąca,
+        - tylko rok: koszty z całego roku,
+        - bez roku i miesiąca: cała zapisana historia,
+        - None, gdy mieszkanie nie istnieje.
+        """
+        if month is not None:
+            if year is None:
+                raise ValueError("Podanie miesiąca wymaga podania roku")
+            if not 1 <= month <= 12:
+                raise ValueError(f"Nieprawidłowy miesiąc: {month}")
         if apartment_key not in self.apartments:
             return None
         costs = 0.0
         for bill in self.bills:
-            if (bill.apartment == apartment_key
-                    and bill.settlement_year == year
-                    and bill.settlement_month == month):
-                costs += bill.amount_pln
+            if bill.apartment != apartment_key:
+                continue
+            if year is not None and bill.settlement_year != year:
+                continue
+            if month is not None and bill.settlement_month != month:
+                continue
+            costs += bill.amount_pln
         return costs
